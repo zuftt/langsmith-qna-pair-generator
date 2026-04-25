@@ -8,9 +8,12 @@ import json
 import tempfile
 import threading
 import queue
-import time
+import io
+import re
 import core
 from werkzeug.utils import secure_filename
+from agents.graph import run_generation
+from generation_db import GenerationRepository
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -18,6 +21,43 @@ app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
 
 # Global queue for progress updates
 progress_queue = queue.Queue()
+repo = GenerationRepository()
+
+try:
+    retention_days = int(os.getenv("QNA_GEN_RETENTION_DAYS", "7"))
+    if retention_days > 0:
+        repo.cleanup_old_generations(retention_days)
+except Exception:
+    pass
+
+
+def slugify_filename(title: str, original_filename: str) -> str:
+    clean = re.sub(r"[^\w\-\s]", "", title or "")
+    clean = re.sub(r"\s+", "_", clean).strip("_")
+    if clean:
+        return f"{clean}.csv"
+    base_name = original_filename.replace(".txt", "") if original_filename.endswith(".txt") else original_filename
+    return f"{base_name or 'qa_bm_pairs'}.csv"
+
+
+def write_csv_bytes(pairs, *, title: str, original_filename: str, domain: str, abstract: str, source: str, source_name: str):
+    csv_buffer = io.StringIO(newline="")
+    writer = csv.writer(csv_buffer)
+    writer.writerow(["Soalan", "Jawapan", "Abstract", "Domain", "Sumber", "Potongan_teks"])
+    for pair in pairs:
+        sumber_value = source if source else source_name
+        writer.writerow(
+            [
+                pair.get("question", ""),
+                pair.get("answer", ""),
+                abstract,
+                domain,
+                sumber_value,
+                pair.get("chunk_text", ""),
+            ]
+        )
+    csv_filename = slugify_filename(title, original_filename)
+    return csv_buffer.getvalue().encode("utf-8"), csv_filename
 @app.route('/api/extract', methods=['POST'])
 def extract_clean_text():
     """Run prefilter to extract CLEAN_TEXT blocks for preview (TITLE/ABSTRACT/BODY)."""
@@ -163,6 +203,8 @@ def generate_qa():
         max_pairs_str = request.form.get('max_pairs', '').strip()
         max_pairs = int(max_pairs_str) if max_pairs_str and max_pairs_str != '0' else None
         skip_review = request.form.get('skip_review', 'true').lower() == 'true'
+        requested_generation_id = (request.form.get('generation_id') or '').strip()
+        domain = (request.form.get('domain') or 'Sejarah').strip()
         
         # Read content
         if title_field is not None or abstract_field is not None or body_field is not None:
@@ -185,6 +227,24 @@ def generate_qa():
             abstract = ''  # No abstract when reading raw file
             source = ''  # No source when reading raw file
         
+        generation_metadata = {
+            'original_filename': original_filename,
+            'source_name': source_name,
+            'title': doc_title,
+            'domain': domain,
+            'abstract': abstract,
+            'source': source,
+        }
+        generation_id = requested_generation_id
+        existing_generation = repo.get_generation(generation_id) if generation_id else None
+        if generation_id and not existing_generation:
+            return jsonify({'error': 'Invalid generation_id'}), 404
+        if not generation_id:
+            generation_id = repo.create_generation(generation_metadata)
+        else:
+            repo.upsert_generation_metadata(generation_id, generation_metadata)
+            repo.update_generation_status(generation_id, 'running')
+
         # Clear progress queue
         while not progress_queue.empty():
             try:
@@ -196,30 +256,55 @@ def generate_qa():
             """Generate Q&A pairs and send progress updates"""
             pairs = []
             
-            def progress_callback(message):
-                """Callback to send progress updates"""
-                progress_queue.put({
-                    'type': 'progress',
-                    'message': message
-                })
+            def progress_callback(payload):
+                """Callback to send progress updates (string or structured dict)."""
+                if isinstance(payload, dict):
+                    msg = payload.get('message', '')
+                    repo.add_event(generation_id, 'progress', json.dumps(payload, ensure_ascii=False))
+                    item = {'type': 'progress', 'message': msg}
+                    for key in ('chunks_completed', 'chunks_total', 'pairs_accepted', 'pairs_target'):
+                        if key in payload:
+                            item[key] = payload[key]
+                    progress_queue.put(item)
+                else:
+                    repo.add_event(generation_id, 'progress', str(payload))
+                    progress_queue.put({'type': 'progress', 'message': str(payload)})
             
             try:
                 # Process the file with progress callback
-                pairs = core.process_text_file(
+                new_pairs = run_generation(
+                    repo,
+                    generation_id,
                     file_content,
                     source_name,
                     max_pairs=max_pairs,
                     progress_callback=progress_callback,
                     skip_review=skip_review,
-                    max_workers=10,  # Increase workers for faster processing
+                    max_workers=int(os.getenv("QNA_MAX_WORKERS", "10")),
                     doc_title=doc_title
                 )
+                all_pairs = repo.list_pairs(generation_id)
+                pairs = [
+                    {
+                        'id': p['id'],
+                        'question': p['question'],
+                        'answer': p['answer'],
+                        'source': p['source'],
+                        'chunk_text': p.get('chunk_text', ''),
+                        'pair_status': p.get('pair_status', 'accepted'),
+                    }
+                    for p in all_pairs
+                ]
+                repo.update_generation_status(generation_id, 'complete')
+                repo.add_event(generation_id, 'complete', f'Generated {len(new_pairs)} new pairs')
                 
                 # Send completion with file info
                 progress_queue.put({
                     'type': 'complete',
+                    'generation_id': generation_id,
                     'pairs': pairs,
                     'count': len(pairs),
+                    'new_pairs_count': len(new_pairs),
                     'original_filename': original_filename,
                     'file_size': len(file_content),
                     'word_count': len(file_content.split()),
@@ -230,6 +315,7 @@ def generate_qa():
             except ValueError as e:
                 # Handle API errors specifically
                 error_msg = str(e)
+                repo.update_generation_status(generation_id, 'error')
                 progress_queue.put({
                     'type': 'error',
                     'error': error_msg,
@@ -240,6 +326,7 @@ def generate_qa():
                 import traceback
                 error_details = traceback.format_exc()
                 print(f"Error in generation: {error_details}")
+                repo.update_generation_status(generation_id, 'error')
                 progress_queue.put({
                     'type': 'error',
                     'error': f"{str(e)}\n\nCheck server logs for details."
@@ -279,50 +366,54 @@ def generate_qa():
 def download_csv():
     """Generate and download CSV file"""
     try:
-        data = request.json
-        pairs = data.get('pairs', [])
-        original_filename = data.get('original_filename', 'qa_bm_pairs')
-        title = (data.get('title') or '').strip()
-        domain = data.get('domain', 'Sejarah').strip()
-        abstract = (data.get('abstract') or '').strip()
-        source = (data.get('source') or '').strip()
-        source_name = (data.get('source_name') or original_filename).strip()
-        
+        data = request.json or {}
+        generation_id = (data.get('generation_id') or '').strip()
+
+        if generation_id:
+            generation = repo.get_generation(generation_id)
+            if not generation:
+                return jsonify({'error': 'Generation not found'}), 404
+            metadata = generation.get('metadata', {})
+            db_pairs = repo.list_pairs(generation_id)
+            pairs = [
+                {
+                    'question': p['question'],
+                    'answer': p['answer'],
+                    'chunk_text': p.get('chunk_text', ''),
+                }
+                for p in db_pairs
+            ]
+            original_filename = (metadata.get('original_filename') or 'qa_bm_pairs').strip()
+            title = (metadata.get('title') or '').strip()
+            domain = (metadata.get('domain') or 'Sejarah').strip()
+            abstract = (metadata.get('abstract') or '').strip()
+            source = (metadata.get('source') or '').strip()
+            source_name = (metadata.get('source_name') or original_filename).strip()
+        else:
+            pairs = data.get('pairs', [])
+            original_filename = data.get('original_filename', 'qa_bm_pairs')
+            title = (data.get('title') or '').strip()
+            domain = data.get('domain', 'Sejarah').strip()
+            abstract = (data.get('abstract') or '').strip()
+            source = (data.get('source') or '').strip()
+            source_name = (data.get('source_name') or original_filename).strip()
+
         if not pairs:
             return jsonify({'error': 'No data to export'}), 400
-        
-        # Generate CSV filename based on extracted title if present
-        def slugify(s: str) -> str:
-            import re
-            s = re.sub(r'[^\w\-\s]', '', s)
-            s = re.sub(r'\s+', '_', s).strip('_')
-            return s or 'qa_bm_pairs'
-        base_name = slugify(title) if title else (original_filename.replace('.txt','') if original_filename.endswith('.txt') else original_filename)
-        csv_filename = f"{base_name}.csv"
-        
-        # Create temporary CSV file
-        temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8')
-        
-        writer = csv.writer(temp_file)
-        # Write header with Abstract, Domain, Sumber, and Chunk columns
-        writer.writerow(['Soalan', 'Jawapan', 'Abstract', 'Domain', 'Sumber', 'Potongan_teks'])
-        # Write data
-        for pair in pairs:
-            # Use extracted source (Sumber) from document for Sumber column
-            sumber_value = source if source else source_name
-            # Get full chunk text from pair
-            chunk_text = pair.get('chunk_text', '')
-            writer.writerow([
-                pair.get('question',''),
-                pair.get('answer',''),
-                abstract,  # Same abstract for all pairs from same document
-                domain,    # Same domain for all pairs
-                sumber_value,  # Sumber - extracted from document
-                chunk_text  # Full chunk text
-            ])
-        
+
+        csv_bytes, csv_filename = write_csv_bytes(
+            pairs,
+            title=title,
+            original_filename=original_filename,
+            domain=domain,
+            abstract=abstract,
+            source=source,
+            source_name=source_name,
+        )
+
+        temp_file = tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.csv')
+        temp_file.write(csv_bytes)
         temp_file.close()
-        
         return send_file(
             temp_file.name,
             mimetype='text/csv',
@@ -332,6 +423,44 @@ def download_csv():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/generations/<generation_id>/pairs', methods=['GET'])
+def list_generation_pairs(generation_id):
+    generation = repo.get_generation(generation_id)
+    if not generation:
+        return jsonify({'error': 'Generation not found'}), 404
+    pairs = repo.list_pairs(generation_id)
+    return jsonify({
+        'generation_id': generation_id,
+        'status': generation.get('status'),
+        'pairs': pairs,
+    })
+
+
+@app.route('/api/generations/<generation_id>/pairs/<int:pair_id>', methods=['PATCH'])
+def update_generation_pair(generation_id, pair_id):
+    data = request.json or {}
+    question = (data.get('question') or '').strip()
+    answer = (data.get('answer') or '').strip()
+    if not question or not answer:
+        return jsonify({'error': 'Both question and answer are required'}), 400
+    if not repo.get_generation(generation_id):
+        return jsonify({'error': 'Generation not found'}), 404
+    updated = repo.update_pair(generation_id, pair_id, question, answer)
+    if not updated:
+        return jsonify({'error': 'Pair not found'}), 404
+    return jsonify({'ok': True})
+
+
+@app.route('/api/generations/<generation_id>/pairs/<int:pair_id>', methods=['DELETE'])
+def delete_generation_pair(generation_id, pair_id):
+    if not repo.get_generation(generation_id):
+        return jsonify({'error': 'Generation not found'}), 404
+    deleted = repo.delete_pair(generation_id, pair_id)
+    if not deleted:
+        return jsonify({'error': 'Pair not found'}), 404
+    return jsonify({'ok': True})
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

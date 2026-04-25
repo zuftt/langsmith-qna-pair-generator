@@ -3,6 +3,7 @@
 from __future__ import annotations
 import os
 import json
+import re
 import difflib
 from typing import List, Dict, Tuple, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -77,6 +78,30 @@ def chat(model: str, system: str, user: str, temperature: float = 0.2) -> str:
         if "401" in error_msg or "unauthorized" in error_msg.lower():
             raise ValueError("Invalid API key. Please check your credentials.")
         raise ValueError(f"API error: {error_msg}")
+
+# --- Document Reference Detection ---
+# Regex patterns to catch contextless document references
+DOCUMENT_REF_PATTERNS = [
+    r'\bteks\s+ini\b',
+    r'\bmenurut\s+teks\s+ini\b',
+    r'\bmakalah\s+ini\b',
+    r'\bmenurut\s+makalah\s+ini\b',
+    r'\bpetikan\s+ini\b',
+    r'\bartikel\s+ini\b',
+    r'\bdokumen\s+ini\b',
+    r'\bkajian\s+ini\b',
+    r'\bpenulisan\s+ini\b',
+    r'\bmenurut\s+penulisan\s+ini\b',
+    r'\bimplikasi\s+teks\b',  # catches "implikasi teks terhadap..."
+]
+
+def has_document_reference(text: str) -> bool:
+    """Check if text contains forbidden document-referencing phrases"""
+    text_lower = text.lower()
+    for pattern in DOCUMENT_REF_PATTERNS:
+        if re.search(pattern, text_lower):
+            return True
+    return False
 
 # --- Text Chunking ---
 def chunk_words(text: str, size: int = CHUNK_WORDS, overlap: int = CHUNK_OVERLAP) -> List[Tuple[str, int, int]]:
@@ -380,6 +405,14 @@ def process_text_file(text_content: str, source_name: str, max_pairs: Optional[i
                 with lock:
                     if len(accepted_pairs) >= max_pairs:
                         return chunk_results
+                
+                # FILTER: Reject any pair with document-referencing phrases
+                question_text = pair.get("question", "")
+                answer_text = pair.get("answer", "")
+                if has_document_reference(question_text) or has_document_reference(answer_text):
+                    if progress_callback:
+                        progress_callback(f"Chunk {idx}: Rejected pair with document reference: {question_text[:60]}...")
+                    continue
                 
                 # Check for duplicates (needs lock)
                 with lock:

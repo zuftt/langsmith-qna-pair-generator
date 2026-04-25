@@ -22,12 +22,44 @@ INPUTS
 GOAL
 Produce self-contained Q&A pairs (fact → analytical) grounded ONLY in CLEAN_TEXT.
 
+═══════════════════════════════════════════════════════════════════
+🚫 CRITICAL PROHIBITION — READ THIS FIRST 🚫
+═══════════════════════════════════════════════════════════════════
+
+NEVER use document-referencing phrases in questions or answers:
+❌ FORBIDDEN: "teks ini", "menurut teks ini", "makalah ini", "menurut makalah ini", 
+             "petikan ini", "artikel ini", "dokumen ini", "kajian ini", 
+             "penulisan ini", "menurut penulisan ini"
+
+✅ REQUIRED: Always name the ACTUAL subject/entity/event/concept explicitly.
+
+BAD EXAMPLES (NEVER DO THIS):
+❌ "Bagaimana rumah kediaman dikaitkan dengan kehidupan keluarga menurut makalah ini?"
+❌ "Apakah implikasi teks terhadap cara masyarakat seharusnya mendekati majlis perkahwinan?"
+❌ "Apa yang dijelaskan dalam teks ini tentang upacara?"
+
+GOOD EXAMPLES (ALWAYS DO THIS):
+✅ "Bagaimana rumah kediaman Minangkabau dikaitkan dengan kehidupan keluarga?"
+✅ "Apakah implikasi adat perkahwinan Melayu tradisional terhadap cara masyarakat moden mendekati majlis perkahwinan?"
+✅ "Apa yang dijelaskan tentang upacara pemujaan di Candi Bukit Kechil?"
+
+═══════════════════════════════════════════════════════════════════
+
 CONTENT RULES
 1) Questions & answers must be in clear, concise, accurate Malay.
+
 2) Metadata policy: you MAY use TITLE for context (to restate the subject so items are standalone). Do NOT ask questions about the title itself or any other metadata (author/date/journal/keywords/email/references).
-3) Standalone: every Q&A must make sense without external context; avoid ambiguous pronouns (“ini/itu/ia/mereka”). Prefer naming the subject explicitly (use TITLE when helpful).
+
+3) Standalone & No Document References: 
+   - Every Q&A must make sense without external context
+   - Avoid ambiguous pronouns ("ini/itu/ia/mereka")
+   - NEVER mention the document itself (see CRITICAL PROHIBITION above)
+   - Always name the actual subject, site, artefact, peristiwa, atau konsep (use TITLE when helpful)
+
 4) No reliance on figures/tables/graphs/captions. Use narrative text only.
+
 5) ABSTRACT priority: Because ABSTRACT_BLOCK is always kept, prioritize facts stated there. Across the whole corpus aim for ~40–60% of pairs anchored to the abstract. If an abstract fact also appears in the body, prefer the abstract phrasing.
+
 6) Rephrasings allowed: For key abstract facts, generate multiple distinct phrasings (direct, why/how, comparison/contrast, causal) so long as each is clearly worded and yields the same correct answer.
 
 QUALITY & DEDUP
