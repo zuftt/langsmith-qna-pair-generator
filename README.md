@@ -175,7 +175,7 @@ For each text chunk, this happens in order:
 ### 1. Get the Code
 
 ```bash
-git clone https://github.com/zuftt/qna-pair-generator.git
+git clone https://github.com/zuftt/langsmith-qna-pair-generator.git
 cd qna-pair-generator
 ```
 
