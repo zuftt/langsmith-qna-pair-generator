@@ -1,0 +1,82 @@
+<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Title -->
+  <text x="400" y="30" font-size="24" font-weight="bold" text-anchor="middle" fill="#1e1e1e">System Architecture</text>
+
+  <!-- UI Layer Background -->
+  <rect x="20" y="50" width="760" height="140" fill="#dbe4ff" opacity="0.3" stroke="#4a9eed" stroke-width="1" rx="8"/>
+  <text x="30" y="70" font-size="14" fill="#2563eb" font-weight="bold">UI / Frontend Layer</text>
+
+  <!-- UI Components -->
+  <rect x="50" y="80" width="160" height="80" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2" rx="4"/>
+  <text x="130" y="125" font-size="14" font-weight="bold" text-anchor="middle" fill="#000">Flask Web App</text>
+
+  <rect x="240" y="80" width="140" height="80" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2" rx="4"/>
+  <text x="310" y="110" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">Upload &amp;</text>
+  <text x="310" y="127" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">Extract</text>
+
+  <rect x="420" y="80" width="140" height="80" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2" rx="4"/>
+  <text x="490" y="110" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">Progress &amp;</text>
+  <text x="490" y="127" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">Results</text>
+
+  <rect x="600" y="80" width="140" height="80" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2" rx="4"/>
+  <text x="670" y="110" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">CSV</text>
+  <text x="670" y="127" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">Download</text>
+
+  <!-- Processing Layer Background -->
+  <rect x="20" y="210" width="760" height="160" fill="#e5dbff" opacity="0.3" stroke="#8b5cf6" stroke-width="1" rx="8"/>
+  <text x="30" y="230" font-size="14" fill="#6d28d9" font-weight="bold">Agent / Processing Layer</text>
+
+  <!-- Processing Components -->
+  <rect x="50" y="240" width="150" height="120" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" rx="4"/>
+  <text x="125" y="305" font-size="14" font-weight="bold" text-anchor="middle" fill="#000">Chunking</text>
+
+  <rect x="230" y="240" width="150" height="120" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" rx="4"/>
+  <text x="305" y="290" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">LangGraph</text>
+  <text x="305" y="310" font-size="12" text-anchor="middle" fill="#000">(per chunk)</text>
+
+  <rect x="410" y="240" width="150" height="120" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" rx="4"/>
+  <text x="485" y="290" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">ThreadPool</text>
+  <text x="485" y="310" font-size="12" text-anchor="middle" fill="#000">(parallel)</text>
+
+  <rect x="590" y="240" width="150" height="120" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" rx="4"/>
+  <text x="665" y="290" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">Deduplication</text>
+  <text x="665" y="310" font-size="12" text-anchor="middle" fill="#000">(Lock)</text>
+
+  <!-- Arrows from UI to Processing -->
+  <line x1="110" y1="160" x2="110" y2="240" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="310" y1="160" x2="310" y2="240" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="490" y1="160" x2="490" y2="240" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="670" y1="160" x2="670" y2="240" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Storage Layer Background -->
+  <rect x="20" y="390" width="760" height="140" fill="#d3f9d8" opacity="0.3" stroke="#22c55e" stroke-width="1" rx="8"/>
+  <text x="30" y="410" font-size="14" fill="#15803d" font-weight="bold">Data / Storage Layer</text>
+
+  <!-- Storage Components -->
+  <rect x="50" y="420" width="200" height="90" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" rx="4"/>
+  <text x="150" y="450" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">SQLite</text>
+  <text x="150" y="470" font-size="12" text-anchor="middle" fill="#000">(generations, pairs)</text>
+
+  <rect x="290" y="420" width="200" height="90" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" rx="4"/>
+  <text x="390" y="450" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">OpenAI-compatible</text>
+  <text x="390" y="470" font-size="12" text-anchor="middle" fill="#000">API (Qwen)</text>
+
+  <rect x="530" y="420" width="200" height="90" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" rx="4"/>
+  <text x="630" y="450" font-size="13" font-weight="bold" text-anchor="middle" fill="#000">System Prompts</text>
+  <text x="630" y="470" font-size="12" text-anchor="middle" fill="#000">(prefilter, gen, review)</text>
+
+  <!-- Arrows from Processing to Storage -->
+  <line x1="130" y1="360" x2="130" y2="420" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+  <line x1="310" y1="360" x2="310" y2="420" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+  <line x1="630" y1="360" x2="630" y2="420" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#8b5cf6"/>
+    </marker>
+    <marker id="arrowhead-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#22c55e"/>
+    </marker>
+  </defs>
+</svg>

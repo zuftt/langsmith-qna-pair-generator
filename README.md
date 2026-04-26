@@ -10,19 +10,36 @@
   <img src="https://img.shields.io/badge/OpenAI--compatible-API-412991" alt="OpenAI-compatible API" />
 </p>
 
-<p align="center">
-  <img src="screenshots/main.png" alt="QnA Pair Generator main screen" width="900" />
-</p>
+---
+
+## The Story
+
+### The Problem
+Creating Q&A datasets for training AI models is painful. Researchers spend weeks manually reading documents and writing questions. It's slow, boring, and error-prone. There had to be a better way.
+
+### The Solution
+Built **custom AI software** that automates Q&A pair generation from Malay academic texts.
+
+### The Process
+1. **Started simple** — Built basic AI prompt to generate pairs
+2. **Tested with researchers** — Got real feedback: "Too many duplicates", "Need to edit results", "Show me progress"
+3. **Iterated** — Added deduplication, editing UI, live progress updates
+4. **Tested again** — Researchers: "Pairs are sometimes bad, need quality control"
+5. **Added review stage** — Optional AI review to validate each pair
+6. **Refined** — Tested with real academic Malay texts, improved prompts
+
+### The Result
+A tool that researchers actually use. Not perfect. But practical. Takes 2-5 minutes to process a 2000-word document instead of 2 hours of manual work.
 
 ---
 
 ## What Is This?
 
-A web application that uses AI to create question-answer datasets from Malay academic texts.
+A web application that uses AI to create question-answer datasets from Malay academic texts. Built through collaboration with researchers. Open source.
 
-**The Problem**: Researchers need Q&A pairs for training AI models. Making these by hand takes a long time and is boring.
-
-**The Solution**: This tool does it automatically. You upload a text file. The system creates good Q&A pairs. You can edit them. Then download as CSV.
+<p align="center">
+  <img src="screenshots/main.png" alt="QnA Pair Generator main screen" width="900" />
+</p>
 
 **Key Features**:
 
@@ -115,7 +132,7 @@ Click "Download CSV". Get a file with columns:
 
 The system has three layers:
 
-![System Architecture](https://excalidraw.com/#json=1btsjI7J2udqJnNd6xByS,dSw2ZG5llRk7DrHlNsrp8g)
+![System Architecture](diagrams/architecture.svg)
 
 | Layer | What It Does |
 | --- | --- |
@@ -127,7 +144,7 @@ The system has three layers:
 
 For each text chunk, this happens in order:
 
-![Pipeline Flow](https://excalidraw.com/#json=dWmJMEm22-X24ANGAQCSK,Pq9hrVhr6FDANohrW_hPcA)
+![Pipeline Flow](diagrams/pipeline.svg)
 
 **The Steps**:
 
@@ -143,11 +160,14 @@ For each text chunk, this happens in order:
 
 ## Tech Stack
 
+### Core Technologies
+
 | Layer | Technology | Purpose |
 | --- | --- | --- |
 | **Backend** | Python 3.10+ | Core language |
 | **Web Framework** | Flask 2.3+ | HTTP server and routing |
-| **AI Orchestration** | LangGraph | Workflow management (filter → generate → review) |
+| **AI Framework** | LangChain | Framework for building with LLMs |
+| **Workflow Orchestration** | LangGraph | State machine for pipeline (filter → generate → review) |
 | **LLM Integration** | OpenAI Python SDK | Connect to any OpenAI-compatible API |
 | **Parallel Processing** | ThreadPoolExecutor | Process multiple chunks simultaneously |
 | **Database** | SQLite + WAL | Store generations and results |
@@ -156,17 +176,27 @@ For each text chunk, this happens in order:
 | **Text Processing** | Python regex | Duplicate detection, filtering |
 | **API Format** | JSON/JSONL | Q&A pair format from AI |
 
-**Dependencies** (see `requirements.txt`):
-- `openai` — LLM API client
-- `flask` — Web server
-- `langchain` + `langgraph` — AI workflow
-- `python-dotenv` — Environment variable management
-- `langsmith` (optional) — Debugging and tracing
+### Dependencies
 
-**Supported AI Models**:
-- Any OpenAI-compatible API
-- Examples: Qwen, Claude, GPT-4, Llama
-- Uses OpenRouter or similar services
+**Required** (in `requirements.txt`):
+- `langchain>=0.3.0` — LLM framework
+- `langgraph>=0.2.0` — Workflow/state management (part of LangChain)
+- `openai>=1.0.0` — LLM API client
+- `flask>=2.3.0` — Web server
+- `python-dotenv>=1.0.0` — Environment variables
+
+**Optional** (for debugging only):
+- `langsmith>=0.1.0` — View step-by-step execution traces
+  - Only needed if you set `LANGCHAIN_TRACING_V2=true` in `.env`
+  - Requires `LANGSMITH_API_KEY`
+  - Visit https://smith.langchain.com to see traces
+
+### Supported AI Models
+
+Works with any OpenAI-compatible API:
+- **Examples**: Qwen, Claude, GPT-4, Llama, Mistral
+- **Services**: OpenRouter, Together AI, Hugging Face Inference, etc.
+- Just update model names in `.env`
 
 ---
 
@@ -384,46 +414,50 @@ Use wrapper tags for best results:
 
 ---
 
-## How This Was Built
-
-This is not a generic tool. It was built by a researcher to solve a real problem:
-
-**The Problem**: Creating Q&A datasets for Malay AI training takes weeks of manual work.
-
-**The Solution**: Built custom AI software that automates pair generation.
-
-**The Process**: 
-1. Started with basic AI prompt
-2. Tested with researchers
-3. Got feedback: "Too many duplicates", "Need editing", "Show progress"
-4. Added deduplication, editing UI, live progress
-5. Tested again with more documents
-6. Got feedback: "Need quality review stage"
-7. Added optional AI review
-8. Tested with real academic texts
-9. Refined prompts based on what worked
-
-**The Result**: A tool that researchers actually use. Not perfect, but practical.
-
----
-
 ## What's Technical About This
 
-For developers:
+### Architecture
 
-- **LangGraph**: Manages the workflow (filter → generate → review → clean)
-- **ThreadPoolExecutor**: Processes multiple chunks at the same time
+For developers who want to understand the design:
+
+- **LangChain + LangGraph**: Manages the workflow (filter → generate → review → clean)
+  - LangChain = the framework
+  - LangGraph = the state machine that runs each chunk
+- **ThreadPoolExecutor**: Processes multiple chunks at the same time (parallel)
 - **SQLite**: Saves results so you can edit them later
-- **Flask**: Web server and API
+- **Flask**: Web server and REST API
 - **SSE (Server-Sent Events)**: Sends progress updates to browser in real-time
-- **OpenAI SDK**: Talks to any AI service (Qwen, Claude, GPT-4, etc.)
+- **OpenAI SDK**: Connects to any AI service (Qwen, Claude, GPT-4, etc.)
 
-Key design choices:
+### Key Design Choices
+
 - **Per-chunk state machines**: Each chunk follows the same path independently
-- **Parallel processing**: N chunks at the same time = faster
-- **Shared deduplication**: One lock protects the question list
+- **Parallel processing**: N chunks at the same time = faster results
+- **Shared deduplication**: One lock protects the question list (prevents duplicates)
 - **Editable results**: Database is source of truth, not final output
-- **Structured prompts**: CLEAN_TEXT blocks reduce confusion
+- **Structured prompts**: CLEAN_TEXT blocks reduce AI confusion
+
+### Debugging with LangSmith (Optional)
+
+If you want to **see exactly what the AI does at each step**:
+
+1. Set in `.env`:
+```
+LANGCHAIN_TRACING_V2=true
+LANGSMITH_API_KEY=your_key_here
+```
+
+2. Run generation once
+
+3. Visit https://smith.langchain.com
+
+4. See traces for:
+   - What the prefilter AI decided
+   - What questions/answers the generator created
+   - What the reviewer accepted/rejected
+   - Full message history
+
+**Note**: This is optional. The tool works fine without it. Only use if you're debugging or improving the prompts.
 
 ---
 

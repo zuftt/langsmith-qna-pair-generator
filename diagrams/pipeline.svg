@@ -1,0 +1,87 @@
+<svg viewBox="0 0 1000 550" xmlns="http://www.w3.org/2000/svg">
+  <!-- Title -->
+  <text x="500" y="30" font-size="20" font-weight="bold" text-anchor="middle" fill="#1e1e1e">Pipeline Flow: Per-Chunk Processing</text>
+
+  <!-- Input -->
+  <rect x="40" y="80" width="100" height="60" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2" rx="4"/>
+  <text x="90" y="105" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Chunk</text>
+  <text x="90" y="122" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Text</text>
+
+  <!-- Arrow -->
+  <line x1="140" y1="110" x2="200" y2="110" stroke="#1e1e1e" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Prefilter Decision -->
+  <polygon points="250,75 300,110 250,145 200,110" fill="#fff3bf" stroke="#f59e0b" stroke-width="2"/>
+  <text x="250" y="115" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Prefilter?</text>
+
+  <!-- Reject path -->
+  <line x1="250" y1="145" x2="250" y2="180" stroke="#ef4444" stroke-width="2" marker-end="url(#arrowhead-red)"/>
+  <text x="260" y="165" font-size="11" fill="#ef4444" font-weight="bold">Reject</text>
+  <rect x="200" y="250" width="100" height="60" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" rx="4"/>
+  <text x="250" y="280" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Skip</text>
+  <line x1="250" y1="190" x2="250" y2="250" stroke="#ef4444" stroke-width="1" stroke-dasharray="5,5"/>
+
+  <!-- Accept path -->
+  <line x1="300" y1="110" x2="380" y2="110" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+  <text x="325" y="100" font-size="11" fill="#22c55e" font-weight="bold">Accept</text>
+
+  <!-- Generate -->
+  <rect x="380" y="75" width="110" height="80" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" rx="4"/>
+  <text x="435" y="105" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Generate</text>
+  <text x="435" y="125" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Candidates</text>
+
+  <!-- Arrow -->
+  <line x1="490" y1="115" x2="570" y2="115" stroke="#1e1e1e" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Review -->
+  <rect x="570" y="75" width="110" height="80" fill="#fff3bf" stroke="#f59e0b" stroke-width="2" rx="4"/>
+  <text x="625" y="105" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Review</text>
+  <text x="625" y="125" font-size="11" text-anchor="middle" fill="#000">(optional)</text>
+
+  <!-- Arrow -->
+  <line x1="680" y1="115" x2="760" y2="115" stroke="#1e1e1e" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Filter -->
+  <rect x="760" y="75" width="110" height="80" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" rx="4"/>
+  <text x="815" y="105" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Filter</text>
+  <text x="815" y="125" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Duplicates</text>
+
+  <!-- Arrow -->
+  <line x1="870" y1="115" x2="930" y2="115" stroke="#1e1e1e" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Output -->
+  <rect x="930" y="80" width="100" height="60" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" rx="4"/>
+  <text x="980" y="105" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Accepted</text>
+  <text x="980" y="122" font-size="12" font-weight="bold" text-anchor="middle" fill="#000">Pairs</text>
+
+  <!-- Legend -->
+  <text x="50" y="330" font-size="12" fill="#757575">For N chunks: parallel ThreadPoolExecutor with shared lock for deduplication</text>
+  <text x="50" y="360" font-size="12" fill="#757575">Progress updates streamed to UI via SSE with chunk counts &amp; ETA</text>
+  <text x="50" y="390" font-size="12" fill="#757575">All pairs written to SQLite during run; editable in results view before download</text>
+
+  <!-- Legend boxes -->
+  <rect x="50" y="440" width="200" height="60" fill="#dbe4ff" stroke="#4a9eed" stroke-width="1" rx="4" opacity="0.5"/>
+  <text x="150" y="460" font-size="11" font-weight="bold" text-anchor="middle" fill="#000">Always run</text>
+  <text x="150" y="477" font-size="11" text-anchor="middle" fill="#000">(critical path)</text>
+
+  <rect x="280" y="440" width="200" height="60" fill="#fff3bf" stroke="#f59e0b" stroke-width="1" rx="4" opacity="0.5"/>
+  <text x="380" y="460" font-size="11" font-weight="bold" text-anchor="middle" fill="#000">Conditional</text>
+  <text x="380" y="477" font-size="11" text-anchor="middle" fill="#000">(branching)</text>
+
+  <rect x="510" y="440" width="200" height="60" fill="#d0bfff" stroke="#8b5cf6" stroke-width="1" rx="4" opacity="0.5"/>
+  <text x="610" y="460" font-size="11" font-weight="bold" text-anchor="middle" fill="#000">Optional</text>
+  <text x="610" y="477" font-size="11" text-anchor="middle" fill="#000">(skip_review)</text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#1e1e1e"/>
+    </marker>
+    <marker id="arrowhead-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowhead-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#ef4444"/>
+    </marker>
+  </defs>
+</svg>
